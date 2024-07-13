@@ -1,10 +1,11 @@
 import socket
 import signal
 import select
+import sys
 
 from constants import *
 
-
+    
 class Server:
 
     def __init__(self, port, backlog=5):
@@ -40,13 +41,15 @@ class Server:
 
 
     def sighandler(self, signum, frame):
+
         print("Encountered kill signal. Closing server")
 
-        for output in self.outputs:
+        for output in self.write_clients:
             output.shutdown(socket.SHUT_RDWR)
             output.close()
 
         self.server.close()
+        sys.exit()
 
 
     def serve(self):
@@ -55,16 +58,19 @@ class Server:
 
         while True:
 
-            try:
-                read_ready, write_ready, error_ready = select.select(read_clients, self.write_clients, [], TIMEOUT)
-            except select.error:
-                print("Error in select function from the select package")
-                break
-            except socket.error:
-                print("Error in select function from socket package")
-                break
+            # try:
+            read_ready, write_ready, error_ready = select.select(read_clients, self.write_clients, [], TIMEOUT)
+            # except select.error:
+            #     print("Error in select function from the select package")
+            #     break
+            # except socket.error:
+            #     print("Error in select function from socket package")
+            #     break
 
             for read_client in read_ready:
+
+                print(f"Clients in reading list: {read_client}")
+                print(f"Clients in writing list: {write_ready}")
 
                 if read_client == self.server:
 
@@ -83,21 +89,28 @@ class Server:
                     read_clients.append(client)
                     self.client_map[client] = (address, client_name)
                     self.write_clients.append(client)
-
+                    
                 else:
+
+                    print("Received a read request from client")
 
                     try:
                         # TODO Implement receiving function for getting data in
                         data = read_client.recv(MESSAGE_LENGTH).decode('utf-8')
+                        print(f"Received data from client {data}")
+
+
+
+
+
                         if data:
                             # TODO send a message to all clients in the server
                             message = ""
-                            for recipient in self.write_clients:
-                                if recipient != read_client:
+                            for recipient in write_ready:
+                                if recipient != read_client and recipient != self.server:
                                     # TODO send the message here
                                     print("Sending")
 
-                        # TODO Double check that this function only triggers on the sending of an empty string, not that it happens automatically
                         else:
                             print(f"Client {read_client} disconnected")
                             self.clients -= 1

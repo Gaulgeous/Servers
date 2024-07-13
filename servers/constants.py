@@ -8,7 +8,7 @@ CONNECTIONS = 5
 MESSAGE_LENGTH = 1024
 
 # Specifies the length of time to wait prior to timing the client or server out
-TIMEOUT = 60
+TIMEOUT = 1
 
 # Specifies the host we want to connect to
 HOST = socket.gethostname()

@@ -52,5 +52,6 @@ if __name__=="__main__":
         now = time.time()
 
         if now - start >= TEST_INTERVAL:
+            print("Sending message")
             client.send_message("Hello")
             start = now
