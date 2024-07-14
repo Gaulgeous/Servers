@@ -1,7 +1,10 @@
 import socket
 import time
+from random import randint
 
 from constants import *
+from encryptions import *
+from coms import *
 
     # while True:
         
@@ -17,10 +20,15 @@ from constants import *
 
 class Client:
 
-    def __init__(self, port):
+    def __init__(self, port, name, wallet):
         self.port = port
         self.socket = socket.socket()
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sequence_number = 0
+        self.address_book = ["Alice"]
+        self.name = name
+        self.wallet = wallet
+        self.public_key, self.private_key = generate_key_pair()
 
         # Might have to keep this one blanked out until we figure out how to use it
         # Plus it might not even be necessary for our intents and purposes
@@ -29,21 +37,32 @@ class Client:
         self.socket.connect((HOST, port))
 
 
-    def send_message(self, message):
-
-        message = message.encode('utf-8')
-        self.socket.send(message)
-
-        # total_sent = 0
-        # while total_sent < MESSAGE_LENGTH:
-        #     sent = self.socket.send(message[total_sent:])
-        #     if sent == 0:
-        #         raise RuntimeError("socket connection broken")
-        #     total_sent = total_sent + sent
+    def send_message(self, message, message_type):
+        send_data(message, message_type, self.sequence_number, self.socket)
+        self.sequence_number += 1
 
 
+    def send_transaction(self):
+        recipient_index = randint(0, len(self.address_book) - 1)
+        recipient = self.address_book[recipient_index]
+        amount = min(self.wallet, randint(1, 100))
+        self.wallet -= amount
+        message = ",".join([self.name, recipient, str(amount)])
+        send_data(message, TRANSACTION, self.sequence_number, self.socket)
+        self.sequence_number += 1
+
+
+    def send_handshake(self):
+        
+        message = ",".join([self.name, self.private_key.exportKey().decode('utf-8'), self.public_key.exportKey().decode('utf-8')])
+        send_data(message, HANDSHAKE, self.sequence_number, self.socket)
+        self.sequence_number += 1
+
+   
 if __name__=="__main__":
-    client = Client(port=5000)
+
+    client = Client(port=5000, name="Bob", wallet=randint(100, 1000))
+    client.send_handshake()
 
     start = time.time()
 
@@ -51,14 +70,5 @@ if __name__=="__main__":
         now = time.time()
 
         if now - start >= TEST_INTERVAL:
-            # print("Sending message")
-            message = "Hello"
-            message_length = str(len(message))
-            while len(message_length) < HEADER_LENGTH:
-                message_length = "".join(['0', message_length])
-
-            print(message_length)
-
-            client.send_message(str(message_length))
-            client.send_message(message)
+            client.send_transaction()
             start = now

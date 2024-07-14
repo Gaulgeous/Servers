@@ -3,7 +3,15 @@ import signal
 import select
 import sys
 
+from Crypto.PublicKey import RSA
+
 from constants import *
+from encryptions import *
+from blocks import *
+from coms import *
+
+
+# TODO implement encryption during message sending
 
     
 class Server:
@@ -11,10 +19,14 @@ class Server:
     def __init__(self, port, backlog=5):
 
         self.clients = 0
-        # Haven't decided on the best form for this one yet. Don't really know the information to put in it
+        self.transaction_number = 0
         self.client_map = {}
         # Output socket list for clients to write to
         self.write_clients = []
+        # Create a buffer for writing transactions to before they're converted to blocks
+        self.transaction_buffer = []
+        # The head source of blockchain to refer to
+        self.blockchain = Chain()
 
         # AF = Address family, SOCK_STREAM = stream type socket (Datagram being the other option)
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -69,8 +81,8 @@ class Server:
 
             for read_client in read_ready:
 
-                print(f"Clients in reading list: {read_client}")
-                print(f"Clients in writing list: {write_ready}")
+                # print(f"Clients in reading list: {read_client}")
+                # print(f"Clients in writing list: {write_ready}")
 
                 if read_client == self.server:
 
@@ -82,60 +94,76 @@ class Server:
                     client, address = self.server.accept()
                     print(f"Received connection from {address}")
 
-                    # TODO Implement function for adding client into the server map
-                    client_name = ""
+                    # TODO find a way to store the address of the client
 
                     self.clients += 1
                     read_clients.append(client)
-                    self.client_map[client] = (address, client_name)
                     self.write_clients.append(client)
                     
                 else:
 
-                    print("Received a read request from client")
-                    self.receive_message(read_client, write_ready, read_ready, read_clients)
+                    self.receive_message(read_client, read_ready, read_clients)
+
+            self.check_transaction_buffer()
+
+
+    def check_transaction_buffer(self):
+
+        if len(self.transaction_buffer) >= TRANSACTION_BUFFER_LIMIT:
+            message = BLOCK_DELIMITER.join(self.transaction_buffer)
+            pow, hash = return_proof_of_work(message, NUM_ZEROS)
+            block = Block(pow=pow, message=message, next_hash=hash)
+            self.blockchain.add_block(block)
+
+            # TODO send the blockchain to everyone
+            print("Printing chain")
+            print()
+            self.blockchain.print_chain()
+            self.transaction_buffer = []
 
                     
-    def receive_message(self, read_client, write_ready, read_ready, read_clients):
+    def receive_message(self, read_client, read_ready, read_clients):
 
         try:
+            message, message_type, sequence_number = receive_data(read_client)
+
+            print(f"message_type {message_type}")
+            print(f"sequence_number {sequence_number}")
+            print(f"message {message}")
+
+            if message_type == HANDSHAKE:
+                name, private_key, public_key = message.split(",")
+                private_key = RSA.import_key(bytes(private_key, "utf-8"))
+                public_key = RSA.import_key(bytes(public_key, "utf-8"))
+                client_details = {"name": name, "socket": read_client, "private_key": private_key, 
+                                  "sequence_number": sequence_number, "public_key": public_key}
+                self.client_map[name] = client_details
+
+                # TODO send the client name to everyone
+
+            elif message_type == TRANSACTION:
+                sender, recipient, amount = message.split(',')
+                message += f",{str(self.transaction_number)}"
+                encoded_transaction = sign(message, self.client_map[sender]["private_key"])
+                self.transaction_buffer.append(encoded_transaction)
+                self.transaction_number += 1
+
+        except socket.error as e:
+
+            print(f"Client {read_client} disconnected")
+            self.clients -= 1
+            read_client.shutdown(socket.SHUT_RDWR)
+            read_client.close()
+            read_clients.remove(read_client)
+            self.write_clients.remove(read_client)
+            read_ready.remove(read_client)
+            self.write_clients.remove(read_client)
+
         
-            # TODO Implement receiving function for getting data in
-
-            # First, receive the length of the following message
-            data = read_client.recv(HEADER_LENGTH).decode('utf-8')
-            message_length = int(data)
-            print(f"message_length {message_length}")
-
-            chunks = []
-            characters_received = 0
-
-            while characters_received < message_length:
-                chunk = read_client.recv(min(message_length-characters_received, BUFFER_SIZE)).decode('utf-8')
-
-                if not chunk:
-                    print(f"Client {read_client} disconnected")
-                    self.clients -= 1
-                    read_client.shutdown(socket.SHUT_RDWR)
-                    read_client.close()
-                    read_clients.remove(read_client)
-                    self.write_clients.remove(read_client)
-
-                chunks.append(chunk)
-                characters_received += len(chunk)
-
-            data = "".join(chunks)
-            message = data.strip()
-
-            print(f"Received data from client {message}")
 
             # TODO parse message contents
             # TODO send a message to all clients in the server
 
-
-        except socket.error as e:
-            read_ready.remove(read_client)
-            self.write_clients.remove(read_client)
 
 
 if __name__=="__main__":

@@ -6,9 +6,16 @@ CONNECTIONS = 5
 
 # Specifies the length of send and recv messages
 HEADER_LENGTH = 4
+TOTAL_HEADER_LENGTH = 11
 
 # Maximum size of message allowed to be transmitted at once
 BUFFER_SIZE = 1024
+
+# Maximum number of transactions to be stored within the buffer before it's emptied into a chain
+TRANSACTION_BUFFER_LIMIT = 5
+
+# Specifies the number of zeros that need to be present at the start of the proof of work hash
+NUM_ZEROS = 10
 
 # Specifies the length of time to wait prior to timing the client or server out
 TIMEOUT = 1
@@ -19,11 +26,9 @@ HOST = socket.gethostname()
 # Specify the waiting time between sending messages during automated testing
 TEST_INTERVAL = 2
 
-# TODO implement flushing
-# TODO implement message length during send and rcv functions
-# Python sends strings. You can calculate their length using the len command
-# Your sends should have the architecture:
-# message_type | message_length | message 
-# Best way is to have two receive functions : The first gets the message type and length, the second keeps looping til it
-# This is going to be a bit of a pain to make work. But comms are always like that.
-# Achieve flushing by sending an empty byte string. Note that this will also close the connection????
+BLOCK_DELIMITER = b"     "
+
+# Specify values for message type
+HANDSHAKE = 1
+TRANSACTION = 2
+BLOCK = 3
