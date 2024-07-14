@@ -6,7 +6,6 @@ from constants import *
     # while True:
         
     #     # By convention, the client starts the conversation by sending in requests
-    #     # TODO implement flushing
     #     # TODO implement message length during send and rcv functions
     #     client_socket.setblocking(False)
     #     message = client_socket.recv(MESSAGE_LENGTH).decode()
@@ -52,6 +51,14 @@ if __name__=="__main__":
         now = time.time()
 
         if now - start >= TEST_INTERVAL:
-            print("Sending message")
-            client.send_message("Hello")
+            # print("Sending message")
+            message = "Hello"
+            message_length = str(len(message))
+            while len(message_length) < HEADER_LENGTH:
+                message_length = "".join(['0', message_length])
+
+            print(message_length)
+
+            client.send_message(str(message_length))
+            client.send_message(message)
             start = now

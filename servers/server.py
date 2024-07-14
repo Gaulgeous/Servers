@@ -58,14 +58,14 @@ class Server:
 
         while True:
 
-            # try:
-            read_ready, write_ready, error_ready = select.select(read_clients, self.write_clients, [], TIMEOUT)
-            # except select.error:
-            #     print("Error in select function from the select package")
-            #     break
-            # except socket.error:
-            #     print("Error in select function from socket package")
-            #     break
+            try:
+                read_ready, write_ready, error_ready = select.select(read_clients, self.write_clients, [], TIMEOUT)
+            except select.error:
+                print("Error in select function from the select package")
+                break
+            except socket.error:
+                print("Error in select function from socket package")
+                break
 
             for read_client in read_ready:
 
@@ -93,38 +93,49 @@ class Server:
                 else:
 
                     print("Received a read request from client")
+                    self.receive_message(read_client, write_ready, read_ready, read_clients)
 
-                    try:
-                        # TODO Implement receiving function for getting data in
-                        data = read_client.recv(MESSAGE_LENGTH).decode('utf-8')
-                        print(f"Received data from client {data}")
+                    
+    def receive_message(self, read_client, write_ready, read_ready, read_clients):
+
+        try:
+        
+            # TODO Implement receiving function for getting data in
+
+            # First, receive the length of the following message
+            data = read_client.recv(HEADER_LENGTH).decode('utf-8')
+            message_length = int(data)
+            print(f"message_length {message_length}")
+
+            chunks = []
+            characters_received = 0
+
+            while characters_received < message_length:
+                chunk = read_client.recv(min(message_length-characters_received, BUFFER_SIZE)).decode('utf-8')
+
+                if not chunk:
+                    print(f"Client {read_client} disconnected")
+                    self.clients -= 1
+                    read_client.shutdown(socket.SHUT_RDWR)
+                    read_client.close()
+                    read_clients.remove(read_client)
+                    self.write_clients.remove(read_client)
+
+                chunks.append(chunk)
+                characters_received += len(chunk)
+
+            data = "".join(chunks)
+            message = data.strip()
+
+            print(f"Received data from client {message}")
+
+            # TODO parse message contents
+            # TODO send a message to all clients in the server
 
 
-
-
-
-                        if data:
-                            # TODO send a message to all clients in the server
-                            message = ""
-                            for recipient in write_ready:
-                                if recipient != read_client and recipient != self.server:
-                                    # TODO send the message here
-                                    print("Sending")
-
-                        else:
-                            print(f"Client {read_client} disconnected")
-                            self.clients -= 1
-                            read_client.shutdown(socket.SHUT_RDWR)
-                            read_client.close()
-                            read_clients.remove(read_client)
-                            self.write_clients.remove(read_client)
-
-                            # TODO implement function to alert other clients that this one has left
-
-
-                    except socket.error as e:
-                        read_ready.remove(client)
-                        self.write_clients.remove(client)
+        except socket.error as e:
+            read_ready.remove(read_client)
+            self.write_clients.remove(read_client)
 
 
 if __name__=="__main__":

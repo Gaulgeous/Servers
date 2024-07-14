@@ -5,7 +5,10 @@ import socket
 CONNECTIONS = 5
 
 # Specifies the length of send and recv messages
-MESSAGE_LENGTH = 1024
+HEADER_LENGTH = 4
+
+# Maximum size of message allowed to be transmitted at once
+BUFFER_SIZE = 1024
 
 # Specifies the length of time to wait prior to timing the client or server out
 TIMEOUT = 1
