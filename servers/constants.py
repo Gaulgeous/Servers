@@ -1,4 +1,5 @@
 import socket
+from typing import Self
 
 # Specifies the number of connections that can be backlogged by the server prior to accept()
 # Note that this does not specify the number of clients within the server

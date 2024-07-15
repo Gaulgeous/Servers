@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 pycryptodome = "^3.20.0"
+mypy = "^1.10.1"
 
 
 [build-system]

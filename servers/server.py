@@ -16,7 +16,7 @@ from coms import *
     
 class Server:
 
-    def __init__(self, port, backlog=5):
+    def __init__(self, port, backlog=5) -> Self:
 
         self.clients = 0
         self.transaction_number = 0
@@ -52,7 +52,7 @@ class Server:
         signal.signal(signal.SIGINT, self.sighandler)
 
 
-    def sighandler(self, signum, frame):
+    def sighandler(self, signum: int, frame: any) -> None:
 
         print("Encountered kill signal. Closing server")
 
@@ -64,7 +64,7 @@ class Server:
         sys.exit()
 
 
-    def serve(self):
+    def serve(self) -> None:
 
         read_clients = [self.server]
 
@@ -80,9 +80,6 @@ class Server:
                 break
 
             for read_client in read_ready:
-
-                # print(f"Clients in reading list: {read_client}")
-                # print(f"Clients in writing list: {write_ready}")
 
                 if read_client == self.server:
 
@@ -107,21 +104,25 @@ class Server:
             self.check_transaction_buffer(write_ready)
 
 
-    def check_transaction_buffer(self, write_ready):
+    def check_transaction_buffer(self, write_ready: list[any]) -> None:
+
+        # TODO This needs to be rewritten to accommodate for the changed buffer
 
         if len(self.transaction_buffer) >= TRANSACTION_BUFFER_LIMIT:
 
-            message = TRANSACTION_DELIMITER.join(self.transaction_buffer)
+            transactions = [entry["encoded_transaction"] for entry in self.transaction_buffer]
+            message = TRANSACTION_DELIMITER.join(transactions)
             pow, hash = return_proof_of_work(message, NUM_ZEROS)
-            block = Block(pow=pow, message=message, next_hash=hash)
+            block = Block(pow=pow.to_bytes(pow.bit_length()), message=message, next_hash=hash)
             self.blockchain.add_block(block)
 
             # TODO send the blockchain to everyone
-            print("Printing chain")
-            print()
-            self.blockchain.print_chain()
+            transcript = open("./transcript.txt", "a")
+            for entry in self.transaction_buffer:
+                transcript.write(f"{entry["sender"]}->{entry["recipient"]} ${entry["amount"]} Transaction ID: {entry["encoded_transaction"]}")
 
-            block_chain_message = self.blockchain_to_text()
+
+            block_chain_message = self.blockchain.to_text()
 
             for write_client in write_ready:
                 client_name = None
@@ -134,14 +135,10 @@ class Server:
             self.transaction_buffer = []
 
                     
-    def receive_message(self, read_client, read_ready, read_clients):
+    def receive_message(self, read_client: socket, read_ready: list[any], read_clients: list[any]) -> None:
 
         try:
             message, message_type, sequence_number = receive_data(read_client)
-
-            print(f"message_type {message_type}")
-            print(f"sequence_number {sequence_number}")
-            print(f"message {message}")
 
             if message_type == HANDSHAKE:
                 name, private_key, public_key = message.split(",")
@@ -162,10 +159,14 @@ class Server:
                         self.client_map[name]["sequence_number"] += 1
 
             elif message_type == TRANSACTION:
+
+                # TODO comlete this transaction within the private side (It's far safer)
+
                 sender, recipient, amount = message.split(',')
                 message += f",{str(self.transaction_number)}"
                 encoded_transaction = sign(message, self.client_map[sender]["private_key"])
-                self.transaction_buffer.append(encoded_transaction)
+                transaction_entry = {"sender": sender, "recipient": recipient, "amount": amount, "encoded_transaction": encoded_transaction}
+                self.transaction_buffer.append(transaction_entry)
                 self.transaction_number += 1
 
             if message_type != RECEIVED:
@@ -195,11 +196,6 @@ class Server:
                     sequence_number = self.client_map[name]["sequence_number"]
                     send_data(name, REMOVE_ADDRESS, sequence_number, write_client)
                     self.client_map[name]["sequence_number"] += 1
-
-        
-
-            # TODO parse message contents
-            # TODO send a message to all clients in the server
 
 
 

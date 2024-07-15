@@ -12,7 +12,7 @@ def generate_key_pair():
 
 
 def sign(message, private_key):
-    message = message.encode('utf-8')
+    message = message.encode('WINDOWS-1252')
     cipher = PKCS1_OAEP.new(key=private_key)
     signature = cipher.encrypt(message)
     return signature
@@ -41,14 +41,7 @@ def return_proof_of_work(message, zero_score=10):
         zeros = 8 - (int(math.log(hash[tracker], 2)) + 1) + tracker*8
 
         if zeros >= zero_score:
-            print(f"pow and hash {pow, hash}")
+
             return pow, hash
         
         pow += 1
-
-
-if __name__=="__main__":
-    public_key, private_key = generate_key_pair()
-    message = "Yes yes I like the food".encode('utf-8')
-    signature = sign(message, private_key)
-    print(verify(message, signature, public_key))
