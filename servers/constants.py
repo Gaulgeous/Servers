@@ -26,9 +26,14 @@ HOST = socket.gethostname()
 # Specify the waiting time between sending messages during automated testing
 TEST_INTERVAL = 2
 
-BLOCK_DELIMITER = b"     "
+TRANSACTION_DELIMITER = b"     "
+BLOCKCHAIN_DELIMITER = b"\n\n\n\n"
+BLOCK_DELIMITER = b"\t\t\t\t"
 
 # Specify values for message type
 HANDSHAKE = 1
 TRANSACTION = 2
 BLOCK = 3
+ADD_ADDRESS = 4
+REMOVE_ADDRESS = 5
+RECEIVED = 6

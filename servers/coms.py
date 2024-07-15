@@ -1,4 +1,6 @@
 from constants import *
+import select
+import errno
 
 def send_data(message, message_type, sequence_number, sock):
 
@@ -13,8 +15,30 @@ def send_data(message, message_type, sequence_number, sock):
 
     header = ",".join([message_length, message_type, sequence_number])
 
-    sock.send(header.encode('utf-8'))
-    sock.send(message.encode('utf-8'))
+    non_blocking_send(header, sock)
+    non_blocking_send(message, sock)
+
+
+def non_blocking_send(message, sock):
+
+        message_length = len(message)
+        total_sent = 0
+        while total_sent < message_length:
+            try:
+                sent = sock.send(message.encode('utf-8'))
+                total_sent += sent
+
+                if total_sent < message_length:
+                    message = message[sent]
+
+            except socket.error as e:
+                if e.errno != errno.EAGAIN:
+                    raise e
+                print(f'Blocking with {len(message)} remaining')
+                select.select([], [sock], [])
+
+            except IndexError as e:
+                print(f"Remaining message {len(message)} Sent {sent} Total Sent {total_sent} Message Length {message_length}")
 
 
 def receive_data(sock):

@@ -1,3 +1,32 @@
+from constants import *
+
+
+def blockchain_from_text(message):
+
+    chain = Chain()
+
+    chunks = message.split(BLOCKCHAIN_DELIMITER)
+    for chunk in chunks:
+        block = block_from_text(chunk)
+        chain.add_block(block)
+
+    return chain
+
+
+def block_from_text(chunk):
+
+    prev_hash, message, powork, next_hash = chunk.split(BLOCK_DELIMITER)
+
+    if prev_hash == "none":
+        prev_hash = None
+
+    if next_hash == "none":
+        next_hash = None
+
+    block = Block(prev_hash=prev_hash, message=message, pow=powork, next_hash=next_hash)
+    return block
+
+
 class Block:
 
     def __init__(self, prev_hash=None, message=None, pow=None, next_hash=None):
@@ -61,6 +90,22 @@ class Block:
         return self.prev
     
 
+    def to_text(self):
+
+        prev_hash = "none"
+        next_hash = "none"
+
+        if self.prev_hash is not None:
+            prev_hash = prev_hash
+
+        if self.next_hash is not None:
+            next_hash = next_hash
+
+        text = BLOCK_DELIMITER.join([prev_hash, self.message, self.pow, next_hash])
+        return text
+
+
+
 class Chain:
 
     def __init__(self):
@@ -103,6 +148,35 @@ class Chain:
             next = next.get_next()
 
         next.print_values()
+
+
+    def return_length(self):
+
+        links = 1
+        head = self.head
+        while head.get_next() is not None:
+            head = head.get_next()
+            links += 1
+
+        return links
+    
+
+    def to_text(self):
+
+        head = self.head
+        chunks = []
+
+        chunks.append(head.to_text())
+
+        while head.get_next() is not None:
+            head = head.get_next()
+            chunks.append(head.to_text())
+
+        message = BLOCKCHAIN_DELIMITER.join(chunks)
+        return message
+    
+
+
 
 
 if __name__=="__main__":

@@ -104,13 +104,14 @@ class Server:
 
                     self.receive_message(read_client, read_ready, read_clients)
 
-            self.check_transaction_buffer()
+            self.check_transaction_buffer(write_ready)
 
 
-    def check_transaction_buffer(self):
+    def check_transaction_buffer(self, write_ready):
 
         if len(self.transaction_buffer) >= TRANSACTION_BUFFER_LIMIT:
-            message = BLOCK_DELIMITER.join(self.transaction_buffer)
+
+            message = TRANSACTION_DELIMITER.join(self.transaction_buffer)
             pow, hash = return_proof_of_work(message, NUM_ZEROS)
             block = Block(pow=pow, message=message, next_hash=hash)
             self.blockchain.add_block(block)
@@ -119,6 +120,17 @@ class Server:
             print("Printing chain")
             print()
             self.blockchain.print_chain()
+
+            block_chain_message = self.blockchain_to_text()
+
+            for write_client in write_ready:
+                client_name = None
+                for name, dic in self.client_map.items():
+                    if dic["socket"] == write_client:
+                        client_name = name
+                send_data(block_chain_message, BLOCK, self.client_map[client_name]["sequence_number"], write_client)
+                self.client_map[client_name]["sequence_number"] += 1
+
             self.transaction_buffer = []
 
                     
@@ -139,7 +151,15 @@ class Server:
                                   "sequence_number": sequence_number, "public_key": public_key}
                 self.client_map[name] = client_details
 
-                # TODO send the client name to everyone
+                for client_name, dic in self.client_map.items():
+                    if client_name != name:
+                        sequence_number = dic["sequence_number"]
+                        send_data(name, ADD_ADDRESS, sequence_number, self.client_map[client_name]["socket"])
+                        dic["sequence_number"] += 1
+
+                        sequence_number = self.client_map[name]["sequence_number"]
+                        send_data(client_name, ADD_ADDRESS, sequence_number, read_client)
+                        self.client_map[name]["sequence_number"] += 1
 
             elif message_type == TRANSACTION:
                 sender, recipient, amount = message.split(',')
@@ -148,16 +168,33 @@ class Server:
                 self.transaction_buffer.append(encoded_transaction)
                 self.transaction_number += 1
 
+            if message_type != RECEIVED:
+                send_data("RECEIVED", RECEIVED, sequence_number, read_client)
+
         except socket.error as e:
 
-            print(f"Client {read_client} disconnected")
-            self.clients -= 1
-            read_client.shutdown(socket.SHUT_RDWR)
-            read_client.close()
-            read_clients.remove(read_client)
-            self.write_clients.remove(read_client)
-            read_ready.remove(read_client)
-            self.write_clients.remove(read_client)
+            name = None
+
+            for client_name, dic in self.client_map.items():
+                if dic["client"] == read_client:
+                    name = client_name
+
+            if name is not None:
+
+                print(f"Client {read_client} disconnected")
+                self.clients -= 1
+                read_client.shutdown(socket.SHUT_RDWR)
+                read_client.close()
+                read_clients.remove(read_client)
+                self.write_clients.remove(read_client)
+                read_ready.remove(read_client)
+
+                for write_client in self.write_clients:
+
+                    # Map to their name, get the sequence number
+                    sequence_number = self.client_map[name]["sequence_number"]
+                    send_data(name, REMOVE_ADDRESS, sequence_number, write_client)
+                    self.client_map[name]["sequence_number"] += 1
 
         
 
